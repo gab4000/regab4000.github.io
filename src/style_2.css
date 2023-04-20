@@ -1,0 +1,151 @@
+* {
+    box-sizing: border-box;
+}
+html {
+    scroll-behavior: smooth;
+}
+a.abtn {
+    color: rgb(11, 168, 241);
+    text-decoration: none;
+    transition: .6s;
+}
+a.abtn:hover {
+    text-decoration: underline 2px rgb(11, 168, 241);
+    transition: ease-in-out .6s;
+}
+p {
+    cursor: default;
+}
+.title {
+    position: relative;
+    font-size: xx-large;
+    width: 100%;
+}
+body {
+    margin: 0;
+    background-origin: content-box;
+    background-attachment: fixed;
+    background-size: cover;
+    font-family: "Agency FB", arial;
+}
+.para1 {
+    position: relative;
+    z-index: 1;
+}
+.fi {
+    width: 60px;
+    margin: 30px;
+    filter: saturate(0);
+    transition: linear .5s;
+}
+.fi:hover {
+    filter: saturate(1.5);
+    cursor: pointer;
+    transition: linear .5s;
+}
+.name {
+    position: relative;
+    font-size: x-large;
+    color: rgb(10, 113, 160);
+    width: 50%;
+}
+.photo {
+    position: relative;
+    border-radius: 50%;
+    padding: 1px;
+    border: 2px solid rgb(10, 113, 160);
+    width: 75px;
+}
+footer {
+    left: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2;
+    border-top: rgb(11, 168, 241) 2px solid;
+}
+.f-item {
+    position: relative;
+    z-index: 2;
+}
+.wrapper {
+    margin-right: 10px;
+    position: relative;
+    opacity: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    width: 20%;
+}
+.li {
+    font-weight: bold;
+    border-top-left-radius: 10px 10px;
+    border-top-right-radius: 10px 10px;
+}
+.btn {
+    font-weight: normal;
+}
+header {
+    margin: 0;
+    width: 100%;
+    padding: 5px;
+    padding-left: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: row;
+    background: #3b5774;
+    z-index: 2;
+}
+header a.btn {
+    font-size: large;
+    transition: all 0.3s;
+    padding: 6px;
+    border-radius: 8px;
+}
+header a.btn:hover {
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.2);
+    transition: all 0.3s;
+}
+.copy {
+    font-size: smaller;
+    text-align: center;
+}
+.i-discover {
+    background: #3b5167;
+    padding: 2% 15% 0% 15%;
+    margin-top: 22%;
+    color: black;
+}
+.content {
+    background: #3b5167;
+    padding: 2% 15% 0% 15%;
+    margin-top: 25%;
+    color: black;
+}
+.discover {
+    margin-top: 20%;
+    position: relative;
+    text-decoration: none;
+    color: black;
+    font-size: 20px;
+    text-transform: uppercase;
+    background: #3b5167;
+    border: #3b5167 3px solid;
+    padding: 8px;
+    border-radius: 10px;
+    transition: all 0.3s;
+}
+.discover:hover {
+    background: #6a91b4;
+    transition: all 0.3s;
+}
+.explore {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+}

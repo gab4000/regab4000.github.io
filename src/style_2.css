@@ -3,6 +3,7 @@
 }
 html {
     scroll-behavior: smooth;
+    background-color: #3b5167;
 }
 a.abtn {
     color: rgb(11, 168, 241);

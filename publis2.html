@@ -1,0 +1,1106 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>JabRef references</title>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript">
+<!--
+// QuickSearch script for JabRef HTML export 
+// Version: 3.0
+//
+// Copyright (c) 2006-2011, Mark Schenk
+//
+// This software is distributed under a Creative Commons Attribution 3.0 License
+// http://creativecommons.org/licenses/by/3.0/
+//
+// Features:
+// - intuitive find-as-you-type searching
+//    ~ case insensitive
+//    ~ ignore diacritics (optional)
+//
+// - search with/without Regular Expressions
+// - match BibTeX key
+//
+
+// Search settings
+var searchAbstract = true;	// search in abstract
+var searchReview = true;	// search in review
+
+var noSquiggles = true; 	// ignore diacritics when searching
+var searchRegExp = false; 	// enable RegExp searches
+
+
+if (window.addEventListener) {
+	window.addEventListener("load",initSearch,false); }
+else if (window.attachEvent) {
+	window.attachEvent("onload", initSearch); }
+
+function initSearch() {
+	// check for quick search table and searchfield
+	if (!document.getElementById('qs_table')||!document.getElementById('quicksearch')) { return; }
+
+	// load all the rows and sort into arrays
+	loadTableData();
+	
+	//find the query field
+	qsfield = document.getElementById('qs_field');
+
+	// previous search term; used for speed optimisation
+	prevSearch = '';
+
+	//find statistics location
+	stats = document.getElementById('stat');
+	setStatistics(-1);
+	
+	// set up preferences
+	initPreferences();
+
+	// shows the searchfield
+	document.getElementById('quicksearch').style.display = 'block';
+	document.getElementById('qs_field').onkeyup = quickSearch;
+}
+
+function loadTableData() {
+	// find table and appropriate rows
+	searchTable = document.getElementById('qs_table');
+	var allRows = searchTable.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+	// split all rows into entryRows and infoRows (e.g. abstract, review, bibtex)
+	entryRows = new Array(); infoRows = new Array(); absRows = new Array(); revRows = new Array();
+
+	// get data from each row
+	entryRowsData = new Array(); absRowsData = new Array(); revRowsData = new Array(); 
+	
+	BibTeXKeys = new Array();
+	
+	for (var i=0, k=0, j=0; i<allRows.length;i++) {
+		if (allRows[i].className.match(/entry/)) {
+			entryRows[j] = allRows[i];
+			entryRowsData[j] = stripDiacritics(getTextContent(allRows[i]));
+			allRows[i].id ? BibTeXKeys[j] = allRows[i].id : allRows[i].id = 'autokey_'+j;
+			j ++;
+		} else {
+			infoRows[k++] = allRows[i];
+			// check for abstract/review
+			if (allRows[i].className.match(/abstract/)) {
+				absRows.push(allRows[i]);
+				absRowsData[j-1] = stripDiacritics(getTextContent(allRows[i]));
+			} else if (allRows[i].className.match(/review/)) {
+				revRows.push(allRows[i]);
+				revRowsData[j-1] = stripDiacritics(getTextContent(allRows[i]));
+			}
+		}
+	}
+	//number of entries and rows
+	numEntries = entryRows.length;
+	numInfo = infoRows.length;
+	numAbs = absRows.length;
+	numRev = revRows.length;
+}
+
+function quickSearch(){
+	
+	tInput = qsfield;
+
+	if (tInput.value.length == 0) {
+		showAll();
+		setStatistics(-1);
+		qsfield.className = '';
+		return;
+	} else {
+		t = stripDiacritics(tInput.value);
+
+		if(!searchRegExp) { t = escapeRegExp(t); }
+			
+		// only search for valid RegExp
+		try {
+			textRegExp = new RegExp(t,"i");
+			closeAllInfo();
+			qsfield.className = '';
+		}
+			catch(err) {
+			prevSearch = tInput.value;
+			qsfield.className = 'invalidsearch';
+			return;
+		}
+	}
+	
+	// count number of hits
+	var hits = 0;
+
+	// start looping through all entry rows
+	for (var i = 0; cRow = entryRows[i]; i++){
+
+		// only show search the cells if it isn't already hidden OR if the search term is getting shorter, then search all
+		if(cRow.className.indexOf('noshow')==-1 || tInput.value.length <= prevSearch.length){
+			var found = false; 
+
+			if (entryRowsData[i].search(textRegExp) != -1 || BibTeXKeys[i].search(textRegExp) != -1){ 
+				found = true;
+			} else {
+				if(searchAbstract && absRowsData[i]!=undefined) {
+					if (absRowsData[i].search(textRegExp) != -1){ found=true; } 
+				}
+				if(searchReview && revRowsData[i]!=undefined) {
+					if (revRowsData[i].search(textRegExp) != -1){ found=true; } 
+				}
+			}
+			
+			if (found){
+				cRow.className = 'entry show';
+				hits++;
+			} else {
+				cRow.className = 'entry noshow';
+			}
+		}
+	}
+
+	// update statistics
+	setStatistics(hits)
+	
+	// set previous search value
+	prevSearch = tInput.value;
+}
+
+
+// Strip Diacritics from text
+// http://stackoverflow.com/questions/990904/javascript-remove-accents-in-strings
+
+// String containing replacement characters for stripping accents 
+var stripstring = 
+    'AAAAAAACEEEEIIII'+
+    'DNOOOOO.OUUUUY..'+
+    'aaaaaaaceeeeiiii'+
+    'dnooooo.ouuuuy.y'+
+    'AaAaAaCcCcCcCcDd'+
+    'DdEeEeEeEeEeGgGg'+
+    'GgGgHhHhIiIiIiIi'+
+    'IiIiJjKkkLlLlLlL'+
+    'lJlNnNnNnnNnOoOo'+
+    'OoOoRrRrRrSsSsSs'+
+    'SsTtTtTtUuUuUuUu'+
+    'UuUuWwYyYZzZzZz.';
+
+function stripDiacritics(str){
+
+    if(noSquiggles==false){
+        return str;
+    }
+
+    var answer='';
+    for(var i=0;i<str.length;i++){
+        var ch=str[i];
+        var chindex=ch.charCodeAt(0)-192;   // Index of character code in the strip string
+        if(chindex>=0 && chindex<stripstring.length){
+            // Character is within our table, so we can strip the accent...
+            var outch=stripstring.charAt(chindex);
+            // ...unless it was shown as a '.'
+            if(outch!='.')ch=outch;
+        }
+        answer+=ch;
+    }
+    return answer;
+}
+
+// http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
+// NOTE: must escape every \ in the export code because of the JabRef Export...
+function escapeRegExp(str) {
+  return str.replace(/[-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
+
+function toggleInfo(articleid,info) {
+
+	var entry = document.getElementById(articleid);
+	var abs = document.getElementById('abs_'+articleid);
+	var rev = document.getElementById('rev_'+articleid);
+	var bib = document.getElementById('bib_'+articleid);
+	
+	if (abs && info == 'abstract') {
+		abs.className.indexOf('noshow') == -1?abs.className = 'abstract noshow':abs.className = 'abstract show';
+	} else if (rev && info == 'review') {
+		rev.className.indexOf('noshow') == -1?rev.className = 'review noshow':rev.className = 'review show';
+	} else if (bib && info == 'bibtex') {
+		bib.className.indexOf('noshow') == -1?bib.className = 'bibtex noshow':bib.className = 'bibtex show';
+	} else { 
+		return;
+	}
+
+	// check if one or the other is available
+	var revshow; var absshow; var bibshow;
+	(abs && abs.className.indexOf('noshow') == -1)? absshow = true: absshow = false;
+	(rev && rev.className.indexOf('noshow') == -1)? revshow = true: revshow = false;	
+	(bib && bib.className.indexOf('noshow') == -1)? bibshow = true: bibshow = false;
+	
+	// highlight original entry
+	if(entry) {
+		if (revshow || absshow || bibshow) {
+		entry.className = 'entry highlight show';
+		} else {
+		entry.className = 'entry show';
+		}
+	}
+	
+	// When there's a combination of abstract/review/bibtex showing, need to add class for correct styling
+	if(absshow) {
+		(revshow||bibshow)?abs.className = 'abstract nextshow':abs.className = 'abstract';
+	} 
+	if (revshow) {
+		bibshow?rev.className = 'review nextshow': rev.className = 'review';
+	}	
+	
+}
+
+function setStatistics (hits) {
+	if(hits < 0) { hits=numEntries; }
+	if(stats) { stats.firstChild.data = hits + '/' + numEntries}
+}
+
+function getTextContent(node) {
+	// Function written by Arve Bersvendsen
+	// http://www.virtuelvis.com
+	
+	if (node.nodeType == 3) {
+	return node.nodeValue;
+	} // text node
+	if (node.nodeType == 1 && node.className != "infolinks") { // element node
+	var text = [];
+	for (var chld = node.firstChild;chld;chld=chld.nextSibling) {
+		text.push(getTextContent(chld));
+	}
+	return text.join("");
+	} return ""; // some other node, won't contain text nodes.
+}
+
+function showAll(){
+	closeAllInfo();
+	for (var i = 0; i < numEntries; i++){ entryRows[i].className = 'entry show'; }
+}
+
+function closeAllInfo(){
+	for (var i=0; i < numInfo; i++){
+		if (infoRows[i].className.indexOf('noshow') ==-1) {
+			infoRows[i].className = infoRows[i].className + ' noshow';
+		}
+	}
+}
+
+function clearQS() {
+	qsfield.value = '';
+	showAll();
+}
+
+function redoQS(){
+	showAll();
+	quickSearch(qsfield);
+}
+
+function updateSetting(obj){
+	var option = obj.id;
+	var checked = obj.value;
+
+	switch(option)
+	 {
+	 case "opt_searchAbs":
+	   searchAbstract=!searchAbstract;
+	   redoQS();
+	   break;
+	 case "opt_searchRev":
+	   searchReview=!searchReview;
+	   redoQS();
+	   break;
+	 case "opt_useRegExp":
+	   searchRegExp=!searchRegExp;
+	   redoQS();
+	   break;
+	 case "opt_noAccents":
+	   noSquiggles=!noSquiggles;
+	   loadTableData();
+	   redoQS();
+	   break;
+	 }
+}
+
+function initPreferences(){
+	if(searchAbstract){document.getElementById("opt_searchAbs").checked = true;}
+	if(searchReview){document.getElementById("opt_searchRev").checked = true;}
+	if(noSquiggles){document.getElementById("opt_noAccents").checked = true;}
+	if(searchRegExp){document.getElementById("opt_useRegExp").checked = true;}
+	
+	if(numAbs==0) {document.getElementById("opt_searchAbs").parentNode.style.display = 'none';}
+	if(numRev==0) {document.getElementById("opt_searchRev").parentNode.style.display = 'none';}	
+}
+
+function toggleSettings(){
+	var togglebutton = document.getElementById('showsettings');
+	var settings = document.getElementById('settings');
+	
+	if(settings.className == "hidden"){
+		settings.className = "show";
+		togglebutton.innerText = "close settings";
+		togglebutton.textContent = "close settings";
+	}else{
+		settings.className = "hidden";
+		togglebutton.innerText = "settings...";		
+		togglebutton.textContent = "settings...";
+	}
+}
+
+-->
+</script>
+<style type="text/css">
+body { background-color: white; font-family: Arial, sans-serif; font-size: 13px; line-height: 1.2; padding: 1em; color: #2E2E2E; width: 50em; margin: auto auto; }
+
+form#quicksearch { width: auto; border-style: solid; border-color: gray; border-width: 1px 0px; padding: 0.7em 0.5em; display:none; position:relative; }
+span#searchstat {padding-left: 1em;}
+
+div#settings { margin-top:0.7em; /* border-bottom: 1px transparent solid; background-color: #efefef; border: 1px grey solid; */ }
+div#settings ul {margin: 0; padding: 0; }
+div#settings li {margin: 0; padding: 0 1em 0 0; display: inline; list-style: none; }
+div#settings li + li { border-left: 2px #efefef solid; padding-left: 0.5em;}
+div#settings input { margin-bottom: 0px;}
+
+div#settings.hidden {display:none;}
+
+#showsettings { border: 1px grey solid; padding: 0 0.5em; float:right; line-height: 1.6em; text-align: right; }
+#showsettings:hover { cursor: pointer; }
+
+.invalidsearch { background-color: red; }
+input[type="button"] { background-color: #efefef; border: 1px #2E2E2E solid;}
+
+table { border: 1px gray none; width: 100%; empty-cells: show; border-spacing: 0em 0.1em; margin: 1em 0em; }
+th, td { border: none; padding: 0.5em; vertical-align: top; text-align: justify; }
+
+td a { color: navy; text-decoration: none; }
+td a:hover  { text-decoration: underline; }
+
+tr.noshow { display: none;}
+tr.highlight td { background-color: #EFEFEF; border-top: 2px #2E2E2E solid; font-weight: bold; }
+tr.abstract td, tr.review td, tr.bibtex td { background-color: #EFEFEF; text-align: justify; border-bottom: 2px #2E2E2E solid; }
+tr.nextshow td { border-bottom-style: none; }
+
+tr.bibtex pre { width: 100%; overflow: auto; white-space: pre-wrap;}
+p.infolinks { margin: 0.3em 0em 0em 0em; padding: 0px; }
+
+@media print {
+	p.infolinks, #qs_settings, #quicksearch, t.bibtex { display: none !important; }
+	tr { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<form action="" id="quicksearch">
+<input type="text" id="qs_field" autocomplete="off" placeholder="Type to search..." /> <input type="button" onclick="clearQS()" value="clear" />
+<span id="searchstat">Matching entries: <span id="stat">0</span></span>
+<div id="showsettings" onclick="toggleSettings()">settings...</div>
+<div id="settings" class="hidden">
+<ul>
+<li><input type="checkbox" class="search_setting" id="opt_searchAbs" onchange="updateSetting(this)"><label for="opt_searchAbs"> include abstract</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_searchRev" onchange="updateSetting(this)"><label for="opt_searchRev"> include review</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_useRegExp" onchange="updateSetting(this)"><label for="opt_useRegExp"> use RegExp</label></li>
+<li><input type="checkbox" class="search_setting" id="opt_noAccents" onchange="updateSetting(this)"><label for="opt_noAccents"> ignore accents</label></li>
+</ul>
+</div>
+</form>
+<table id="qs_table" border="1">
+<tbody>
+<tr id="CLUZET2020" class="entry">
+	<td>Cluzet B, Revuelto J, Lafaysse M, Tuzet F, Cosme E, Picard G, Arnaud L and Dumont M (2020), <i>"Towards the assimilation of satellite reflectance into semi-distributed ensemble snowpack simulations"</i>, Cold Regions Science and Technology.  Vol. 170, pp. 102918.
+	<p class="infolinks">[<a href="javascript:toggleInfo('CLUZET2020','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('CLUZET2020','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1016/j.coldregions.2019.102918" target="_blank">DOI</a>] [<a href="http://www.sciencedirect.com/science/article/pii/S0165232X19300746" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="abs_CLUZET2020" class="abstract noshow">
+	<td><b>Abstract</b>: Uncertainties of snowpack models and of their meteorological forcings limit their use by avalanche hazard forecasters, or for glaciological and hydrological studies. The spatialized simulations currently available for avalanche hazard forecasting are only assimilating sparse meteorological observations. As suggested by recent studies, their forecasting skills could be significantly improved by assimilating satellite data such as snow reflectances from satellites in the visible and the near-infrared spectra. Indeed, these data can help constrain the microstructural properties of surface snow and light absorbing impurities content, which in turn affect the surface energy and mass budgets. This paper investigates the prerequisites of satellite data assimilation into a detailed snowpack model. An ensemble version of Météo-France operational snowpack forecasting system (named S2M) was built for this study. This operational system runs on topographic classes instead of grid points, so-called ‘semi-distributed’ approach. Each class corresponds to one of the 23 mountain massifs of the French Alps (about 1000 km2 each), an altitudinal range (by step of 300 m) and aspect (by step of 45°). We assess the feasability of satellite data assimilation in such a semi-distributed geometry. Ensemble simulations are compared with satellite observations from MODIS and Sentinel-2, and with in-situ reflectance observations. The study focuses on the 2013–2014 and 2016–2017 winters in the Grandes-Rousses massif. Substantial Pearson R2 correlations (0.75–0.90) of MODIS observations with simulations are found over the domain. This suggests that assimilating it could have an impact on the spatialized snowpack forecasting system. However, observations contain significant biases (0.1–0.2 in reflectance) which prevent their direct assimilation. MODIS spectral band ratios seem to be much less biased. This may open the way to an operational assimilation of MODIS reflectances into the Météo-France snowpack modelling system.</td>
+</tr>
+<tr id="bib_CLUZET2020" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{CLUZET2020,
+  author = {Bertrand Cluzet and Jesus Revuelto and Matthieu Lafaysse and François Tuzet and Emmanuel Cosme and Ghislain Picard and Laurent Arnaud and Marie Dumont},
+  title = {Towards the assimilation of satellite reflectance into semi-distributed ensemble snowpack simulations},
+  journal = {Cold Regions Science and Technology},
+  year = {2020},
+  volume = {170},
+  pages = {102918},
+  url = {http://www.sciencedirect.com/science/article/pii/S0165232X19300746},
+  doi = {10.1016/j.coldregions.2019.102918}
+}
+</pre></td>
+</tr>
+<tr id="gomeznavarro2020" class="entry">
+	<td>Gomez-Navarro L, Cosme E, Le Sommer J, Papadakis N and Pascual A (2020), <i>"Development of an image de-noising method in preparation for the Surface Water and Ocean Topography satellite mission"</i>, Remote Sensing.  Vol. 12(734)
+	<p class="infolinks"> [<a href="javascript:toggleInfo('gomeznavarro2020','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_gomeznavarro2020" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{gomeznavarro2020,
+  author = {Gomez-Navarro, Laura and Cosme, Emmanuel and Le Sommer, Julien and Papadakis, Nicolas and Pascual, Ananda},
+  title = {Development of an image de-noising method in preparation for the Surface Water and Ocean Topography satellite mission},
+  journal = {Remote Sensing},
+  year = {2020},
+  volume = {12},
+  number = {734},
+  note = {doi:10.3390/rs12040734}
+}
+</pre></td>
+</tr>
+<tr id="metref2019b" class="entry">
+	<td>Metref S, Cosme E, Le Guillou F, Le Sommer J, Brankart J-M and Verron J (2020), <i>"Wide-swath altimetric satellite data assimilation with structured-error detrending"</i>, Frontiers in Marine Science.  Vol. 6
+	<p class="infolinks"> [<a href="javascript:toggleInfo('metref2019b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.3389/fmars.2019.00822" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="bib_metref2019b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{metref2019b,
+  author = {Metref, Sammy and Cosme, Emmanuel and Le Guillou, Florian and Le Sommer, Julien and Brankart, Jean-Michel and Verron, Jacques},
+  title = {Wide-swath altimetric satellite data assimilation with structured-error detrending},
+  journal = {Frontiers in Marine Science},
+  year = {2020},
+  volume = {6},
+  doi = {10.3389/fmars.2019.00822}
+}
+</pre></td>
+</tr>
+<tr id="lguensat2019" class="entry">
+	<td>Lguensat R, Sommer JL, Metref S, Cosme E and Fablet R (2019), <i>"Learning Generalized Quasi-Geostrophic Models Using Deep Neural Numerical Models"</i>. 
+	<p class="infolinks"> [<a href="javascript:toggleInfo('lguensat2019','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_lguensat2019" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@misc{lguensat2019,
+  author = {Redouane Lguensat and Julien Le Sommer and Sammy Metref and Emmanuel Cosme and Ronan Fablet},
+  title = {Learning Generalized Quasi-Geostrophic Models Using Deep Neural Numerical Models},
+  year = {2019},
+  note = {2nd Workshop on Machine Learning and the Physical Sciences (NeurIPS 2019), Vancouver, Canada}
+}
+</pre></td>
+</tr>
+<tr id="metref2019" class="entry">
+	<td>Metref S, Cosme E, Le Sommer J, Poel N, Brankart J-M, Verron J and G&oacute;mez Navarro L (2019), <i>"Reduction of Spatially Structured Errors in Wide-Swath Altimetric Satellite Data Using Data Assimilation"</i>, Remote Sensing.  Vol. 11(11)
+	<p class="infolinks"> [<a href="javascript:toggleInfo('metref2019','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.3390/rs11111336" target="_blank">DOI</a>] [<a href="https://www.mdpi.com/2072-4292/11/11/1336" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_metref2019" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{metref2019,
+  author = {Metref, Sammy and Cosme, Emmanuel and Le Sommer, Julien and Poel, Nora and Brankart, Jean-Michel and Verron, Jacques and G&oacute;mez Navarro, Laura},
+  title = {Reduction of Spatially Structured Errors in Wide-Swath Altimetric Satellite Data Using Data Assimilation},
+  journal = {Remote Sensing},
+  year = {2019},
+  volume = {11},
+  number = {11},
+  url = {https://www.mdpi.com/2072-4292/11/11/1336},
+  doi = {10.3390/rs11111336}
+}
+</pre></td>
+</tr>
+<tr id="morrow2019" class="entry">
+	<td>Morrow R, Fu L-L, Ardhuin F, Benkiran M, Chapron B, Cosme E, d'Ovidio  F, Farrar JT, Gille ST, Lapeyre G, Le Traon P-Y, Pascual A, Ponte A, Qiu B, Rascle N, Ubelmann C, Wang J and Zaron ED (2019), <i>"Global Observations of Fine-Scale Ocean Surface Topography With the Surface Water and Ocean Topography (SWOT) Mission"</i>, Frontiers in Marine Science., MAY 15, 2019.  Vol. 6
+	<p class="infolinks"> [<a href="javascript:toggleInfo('morrow2019','bibtex')">BibTeX</a>] [<a href="{10.3389/fmars.2019.00232}" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="bib_morrow2019" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{morrow2019,
+  author = {Morrow, Rosemary and Fu, Lee-Lueng and Ardhuin, Fabrice and Benkiran, Mounir and Chapron, Bertrand and Cosme, Emmanuel and d'Ovidio, Francesco and Farrar, J. Thomas and Gille, Sarah T. and Lapeyre, Guillaume and Le Traon, Pierre-Yves and Pascual, Ananda and Ponte, Aurelien and Qiu, Bo and Rascle, Nicolas and Ubelmann, Clement and Wang, Jinbo and Zaron, Edward D.},
+  title = {Global Observations of Fine-Scale Ocean Surface Topography With the Surface Water and Ocean Topography (SWOT) Mission},
+  journal = {Frontiers in Marine Science},
+  year = {2019},
+  volume = {6},
+  doi = {{10.3389/fmars.2019.00232}}
+}
+</pre></td>
+</tr>
+<tr id="tissier2019" class="entry">
+	<td>Tissier A-S, Brankart J-M, Testut C-E, Ruggiero G, Cosme E and Brasseur P (2019), <i>"A multiscale ocean data assimilation approach combining spatial and spectral localisation"</i>, Ocean Science.  Vol. 15(2), pp. 443-457.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('tissier2019','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.5194/os-15-443-2019" target="_blank">DOI</a>] [<a href="https://www.ocean-sci.net/15/443/2019/" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_tissier2019" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{tissier2019,
+  author = {Tissier, A.-S. and Brankart, J.-M. and Testut, C.-E. and Ruggiero, G. and Cosme, E. and Brasseur, P.},
+  title = {A multiscale ocean data assimilation approach combining spatial and spectral localisation},
+  journal = {Ocean Science},
+  year = {2019},
+  volume = {15},
+  number = {2},
+  pages = {443--457},
+  url = {https://www.ocean-sci.net/15/443/2019/},
+  doi = {10.5194/os-15-443-2019}
+}
+</pre></td>
+</tr>
+<tr id="gomez-navarro2018" class="entry">
+	<td>Gomez-Navarro L, Fablet R, Mason E, Pascual A, Mourre B, Cosme E and Le Sommer J (2018), <i>"SWOT Spatial Scales in the Western Mediterranean Sea Derived from Pseudo-Observations and an Ad Hoc Filtering"</i>, Remote Sensing., APR, 2018.  Vol. 10(4)
+	<p class="infolinks"> [<a href="javascript:toggleInfo('gomez-navarro2018','bibtex')">BibTeX</a>] [<a href="{10.3390/rs10040599}" target="_blank">DOI</a>]</p>
+	</td>
+</tr>
+<tr id="bib_gomez-navarro2018" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{gomez-navarro2018,
+  author = {Gomez-Navarro, Laura and Fablet, Ronan and Mason, Evan and Pascual, Ananda and Mourre, Baptiste and Cosme, Emmanuel and Le Sommer, Julien},
+  title = {SWOT Spatial Scales in the Western Mediterranean Sea Derived from Pseudo-Observations and an Ad Hoc Filtering},
+  journal = {Remote Sensing},
+  year = {2018},
+  volume = {10},
+  number = {4},
+  doi = {{10.3390/rs10040599}}
+}
+</pre></td>
+</tr>
+<tr id="larue2018a" class="entry">
+	<td>Larue F, Royer A, De Sève D, Roy A, Picard G, Vionnet V and Cosme E (2018), <i>"Simulation and Assimilation of Passive Microwave Data Using a Snowpack Model Coupled to a Calibrated Radiative Transfer Model Over Northeastern Canada"</i>, Water Resources Research.  Vol. 54(7), pp. 4823-4848.
+	<p class="infolinks">[<a href="javascript:toggleInfo('larue2018a','abstract')">Abstract</a>] [<a href="javascript:toggleInfo('larue2018a','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1029/2017WR022132" target="_blank">DOI</a>] [<a href="https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2017WR022132" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="abs_larue2018a" class="abstract noshow">
+	<td><b>Abstract</b>: Abstract Over northern snowmelt-dominated basins, the snow water equivalent (SWE) is of primary interest for hydrological forecasting. This paper evaluates first the performance of a detailed multilayer snowpack model (Crocus), driven by meteorological predictions generated by the Canadian Global Environmental Multiscale model, for hydrological applications. Simulations were compared to daily snow depth and SWE measurements over Québec, northeastern Canada (56–45°N), for 2012–2016, highlighting an overestimation of the annual maximum snow depth (35 and of the annual maximum SWE (16, which is not accurate enough for hydrological applications. To improve SWE simulations, a chain of models is implemented to simulate and to assimilate passive microwave satellite observations. The snowpack model is coupled to a microwave snow emission model (Dense Media Radiative Transfer-Multilayers model, DMRT-ML), and the comparison of simulated brightness temperatures (TBs) with surface-based TB measurements (at 11, 19 and 37 GHz) shows best results when the snow stickiness parameter is set to 0.17 in DMRT-ML. The overall root-mean-square error (RMSE) obtained by the calibrated coupling reaches 27 K, significantly better than the RMSE obtained by considering nonsticky spheres in DMRT-ML (43.0 K). The relevance of TB assimilation is tested with synthetic observations to evaluate the information content of each frequency for SWE estimates. The assimilation scheme is a Sequential Importance Resampling Particle filter using an ensemble of perturbed meteorological forcing data. The results show a SWE RMSE reduced by 82&#37; with TB assimilation compared to without assimilation.</td>
+</tr>
+<tr id="bib_larue2018a" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{larue2018a,
+  author = {Larue, F. and Royer, A. and De Sève, D. and Roy, A. and Picard, G. and Vionnet, V. and Cosme, E.},
+  title = {Simulation and Assimilation of Passive Microwave Data Using a Snowpack Model Coupled to a Calibrated Radiative Transfer Model Over Northeastern Canada},
+  journal = {Water Resources Research},
+  year = {2018},
+  volume = {54},
+  number = {7},
+  pages = {4823-4848},
+  url = {https://agupubs.onlinelibrary.wiley.com/doi/abs/10.1029/2017WR022132},
+  doi = {10.1029/2017WR022132}
+}
+</pre></td>
+</tr>
+<tr id="larue2018b" class="entry">
+	<td>Larue F, Royer A, De S&egrave;ve D, Roy A and Cosme E (2018), <i>"Assimilation of passive microwave AMSR-2 satellite observations in a snowpack evolution model over northeastern Canada"</i>, Hydrology and Earth System Sciences.  Vol. 22(11), pp. 5711-5734.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('larue2018b','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.5194/hess-22-5711-2018" target="_blank">DOI</a>] [<a href="https://www.hydrol-earth-syst-sci.net/22/5711/2018/" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_larue2018b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{larue2018b,
+  author = {Larue, F. and Royer, A. and De S&egrave;ve, D. and Roy, A. and Cosme, E.},
+  title = {Assimilation of passive microwave AMSR-2 satellite observations in a snowpack evolution model over northeastern Canada},
+  journal = {Hydrology and Earth System Sciences},
+  year = {2018},
+  volume = {22},
+  number = {11},
+  pages = {5711--5734},
+  url = {https://www.hydrol-earth-syst-sci.net/22/5711/2018/},
+  doi = {10.5194/hess-22-5711-2018}
+}
+</pre></td>
+</tr>
+<tr id="romancascon2017" class="entry">
+	<td>Román-Cascón C, Pellarin T, Gibon F, Brocca L, Cosme E, Crow W, Fernández-Prieto D, Kerr YH and Massari C (2017), <i>"Correcting satellite-based precipitation products through SMOS soil moisture data assimilation in two land-surface models of different complexity: API and SURFEX"</i>, Remote Sensing of Environment.  Vol. 200, pp. 295 - 310.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('romancascon2017','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1016/j.rse.2017.08.022" target="_blank">DOI</a>] [<a href="http://www.sciencedirect.com/science/article/pii/S0034425717303905" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_romancascon2017" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{romancascon2017,
+  author = {Carlos Román-Cascón and Thierry Pellarin and François Gibon and Luca Brocca and Emmanuel Cosme and Wade Crow and Diego Fernández-Prieto and Yann H. Kerr and Christian Massari},
+  title = {Correcting satellite-based precipitation products through SMOS soil moisture data assimilation in two land-surface models of different complexity: API and SURFEX},
+  journal = {Remote Sensing of Environment},
+  year = {2017},
+  volume = {200},
+  pages = {295 - 310},
+  url = {http://www.sciencedirect.com/science/article/pii/S0034425717303905},
+  doi = {10.1016/j.rse.2017.08.022}
+}
+</pre></td>
+</tr>
+<tr id="charrois2016" class="entry">
+	<td>Charrois L, Cosme E, Dumont M, Lafaysse M, Morin S, Libois Q and Picard G (2016), <i>"On the assimilation of optical reflectances and snow depth observations into a detailed snowpack model"</i>, The Cryopshere.  Vol. {10}({3}), pp. {1021-1038}.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('charrois2016','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_charrois2016" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{charrois2016,
+  author = {Charrois, L. and E. Cosme and M. Dumont and M. Lafaysse and S. Morin and Q. Libois and G. Picard},
+  title = {On the assimilation of optical reflectances and snow depth observations into a detailed snowpack model},
+  journal = {The Cryopshere},
+  year = {2016},
+  volume = {10},
+  number = {3},
+  pages = {1021-1038}
+}
+</pre></td>
+</tr>
+<tr id="garnier2016" class="entry">
+	<td>Garnier F, Brankart J-M, Brasseur P and Cosme E (2016), <i>"Stochastic parameterizations of biogeochemical uncertainties in a 1/4° NEMO/PISCES model for probabilistic comparisons with ocean color data"</i>, Journal of Marine Systems.  Vol. 155, pp. 59–72.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('garnier2016','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_garnier2016" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{garnier2016,
+  author = {Garnier, F. and J.-M. Brankart and P. Brasseur and E. Cosme},
+  title = {Stochastic parameterizations of biogeochemical uncertainties in a 1/4° NEMO/PISCES model for probabilistic comparisons with ocean color data},
+  journal = {Journal of Marine Systems},
+  year = {2016},
+  volume = {155},
+  pages = {59–72}
+}
+</pre></td>
+</tr>
+<tr id="ruggiero2016" class="entry">
+	<td>Ruggiero GA, Cosme E, Brankart J-M, Sommer JL and Ubelmann C (2016), <i>"An efficient way to account for observation error correlations in the assimilation of data from the future SWOT High-Resolution altimeter mission"</i>, J. Atmos. Oceanic Technol..  Vol. 33, pp. 2755-2768.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('ruggiero2016','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_ruggiero2016" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{ruggiero2016,
+  author = {Ruggiero, G. A. and E. Cosme and J.-M. Brankart and J. Le Sommer and C. Ubelmann},
+  title = {An efficient way to account for observation error correlations in the assimilation of data from the future SWOT High-Resolution altimeter mission},
+  journal = {J. Atmos. Oceanic Technol.},
+  year = {2016},
+  volume = {33},
+  pages = {2755-2768}
+}
+</pre></td>
+</tr>
+<tr id="sanchez2016" class="entry">
+	<td>Sanchez S, Fournier A, Aubert J, Cosme E and Gallet Y (2016), <i>"Modelling the archaeomagnetic field under spatial constraints from dynamo simulations: a resolution analysis"</i>, Geophysical Journal International.  Vol. 207(2), pp. 983.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('sanchez2016','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1093/gji/ggw316" target="_blank">DOI</a>] [<a href=" + http://dx.doi.org/10.1093/gji/ggw316" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_sanchez2016" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{sanchez2016,
+  author = {Sanchez, S. and Fournier, A. and Aubert, J. and Cosme, E. and Gallet, Y.},
+  title = {Modelling the archaeomagnetic field under spatial constraints from dynamo simulations: a resolution analysis},
+  journal = {Geophysical Journal International},
+  year = {2016},
+  volume = {207},
+  number = {2},
+  pages = {983},
+  url = { + http://dx.doi.org/10.1093/gji/ggw316},
+  doi = {10.1093/gji/ggw316}
+}
+</pre></td>
+</tr>
+<tr id="ruggiero2015" class="entry">
+	<td>Ruggiero GA, Ourmi&egrave;res Y, Cosme E, Blum J, Auroux D and Verron J (2015), <i>"Data assimilation experiments using diffusive back-and-forth nudging for the NEMO ocean model"</i>, Nonlin. Proc. Geophys..  Vol. 22(2), pp. 233-248.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('ruggiero2015','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_ruggiero2015" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{ruggiero2015,
+  author = {Ruggiero, G. A. and Ourmi&egrave;res, Y. and Cosme, E. and Blum, J. and Auroux, D. and Verron, J.},
+  title = {Data assimilation experiments using diffusive back-and-forth nudging for the NEMO ocean model},
+  journal = {Nonlin. Proc. Geophys.},
+  year = {2015},
+  volume = {22},
+  number = {2},
+  pages = {233-248}
+}
+</pre></td>
+</tr>
+<tr id="blayo2014" class="entry">
+	<td> (2014), <i>"Advanced Data Assimilation for Geosciences"</i>  Oxford University Press.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('blayo2014','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_blayo2014" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@book{blayo2014,,
+  editor = {Blayo, E. and M. Bocquet and E. Cosme and L. Cugliandolo},
+  title = {Advanced Data Assimilation for Geosciences},
+  publisher = {Oxford University Press},
+  year = {2014}
+}
+</pre></td>
+</tr>
+<tr id="cosme2014" class="entry">
+	<td>Cosme E (2014), <i>"Advanced Data Assimilation for Geosciences"</i> , pp. 121-136. Oxford University Press.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('cosme2014','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_cosme2014" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inbook{cosme2014,
+  author = {Cosme, E.},
+  editor = {Blayo, E., Bocquet, M., Cosme, E. &amp; Cugliandolo, L.},
+  title = {Advanced Data Assimilation for Geosciences},
+  publisher = {Oxford University Press},
+  year = {2014},
+  pages = {121-136}
+}
+</pre></td>
+</tr>
+<tr id="metref2014" class="entry">
+	<td>Metref S, Cosme E, Snyder C and Brasseur P (2014), <i>"A non-Gaussian analysis scheme using rank histograms for ensemble data assimilation"</i>, Nonlin. Processes Geophys..  Vol. 21, pp. 1-17.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('metref2014','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_metref2014" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{metref2014,
+  author = {Metref, S. and E. Cosme and C. Snyder and P. Brasseur},
+  title = {A non-Gaussian analysis scheme using rank histograms for ensemble data assimilation},
+  journal = {Nonlin. Processes Geophys.},
+  year = {2014},
+  volume = {21},
+  pages = {1-17}
+}
+</pre></td>
+</tr>
+<tr id="cosme2012" class="entry">
+	<td>Cosme E, Verron J, Brasseur P, Blum J and Auroux D (2012), <i>"Smoothing problems in a Bayesian framework and their linear Gaussian solutions"</i>, Month. Weath. Rev..  Vol. 140(2), pp. 683-695.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('cosme2012','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_cosme2012" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{cosme2012,
+  author = {Cosme, E. and J. Verron and P. Brasseur and J. Blum and D. Auroux},
+  title = {Smoothing problems in a Bayesian framework and their linear Gaussian solutions},
+  journal = {Month. Weath. Rev.},
+  year = {2012},
+  volume = {140(2)},
+  pages = {683--695}
+}
+</pre></td>
+</tr>
+<tr id="freychet2012a" class="entry">
+	<td>Freychet N, Cosme E, Brasseur P, Kpemlie E and Brankart J-M (2012), <i>"Assessment of a reduced rank smoother for data assimilation in a high resolution model of the Atlantic Ocean"</i>, Ocean Sci..  Vol. 8, pp. 797–811.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('freychet2012a','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_freychet2012a" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{freychet2012a,
+  author = {Freychet, N. and E. Cosme and P. Brasseur and E. Kpemlie and J.-M. Brankart},
+  title = {Assessment of a reduced rank smoother for data assimilation in a high resolution model of the Atlantic Ocean},
+  journal = {Ocean Sci.},
+  year = {2012},
+  volume = {8},
+  pages = {797–811}
+}
+</pre></td>
+</tr>
+<tr id="ubelmann2012" class="entry">
+	<td>Ubelmann C, J.Verron, Brankart J-M, Brasseur P and Cosme E (2012), <i>"Assimilating altimetric data to control the tropical instability waves: an observing system simulation experiment study"</i>, Ocean Dynamics.  Vol. 62, pp. 867–880.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('ubelmann2012','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_ubelmann2012" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{ubelmann2012,
+  author = {Ubelmann, C. and J.Verron and J.-M. Brankart and P. Brasseur and E. Cosme},
+  title = {Assimilating altimetric data to control the tropical instability waves: an observing system simulation experiment study},
+  journal = {Ocean Dynamics},
+  year = {2012},
+  volume = {62},
+  pages = {867–880},
+  note = {doi:10.1007/s10236-012-0539-3}
+}
+</pre></td>
+</tr>
+<tr id="brankart2010b" class="entry">
+	<td>Brankart J-M, Cosme E, Testut C-E, Brasseur P and Verron J (2011), <i>"Efficient local error parameterizations for square root or ensemble Kalman filters: application to a basin-scale ocean turbulent flow"</i>, Month. Weath. Rev..  Vol. 139(2), pp. 474-493.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('brankart2010b','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_brankart2010b" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{brankart2010b,
+  author = {Brankart, J.-M. and Cosme, E. and Testut, C.-E. and Brasseur, P. and Verron, J.},
+  title = {Efficient local error parameterizations for square root or ensemble Kalman filters: application to a basin-scale ocean turbulent flow},
+  journal = {Month. Weath. Rev.},
+  year = {2011},
+  volume = {139(2)},
+  pages = {474-493}
+}
+</pre></td>
+</tr>
+<tr id="krysta2011" class="entry">
+	<td>Krysta M, Blayo E, Cosme E and Verron J (2011), <i>"A consistent hybrid variational-smoothing data assimilation method: Application to a simple shallow-water model of the turbulent mid-latitude ocean"</i>, Month. Weath. Rev..  Vol. 139, pp. 3333-3347.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('krysta2011','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_krysta2011" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{krysta2011,
+  author = {Krysta, M. and E. Blayo and E. Cosme and J. Verron},
+  title = {A consistent hybrid variational-smoothing data assimilation method: Application to a simple shallow-water model of the turbulent mid-latitude ocean},
+  journal = {Month. Weath. Rev.},
+  year = {2011},
+  volume = {139},
+  pages = {3333-3347},
+  note = {submitted}
+}
+</pre></td>
+</tr>
+<tr id="brankart2010a" class="entry">
+	<td>Brankart J-M, Cosme E, Testut C-E, Brasseur P and Verron J (2010), <i>"Efficient adaptive error parameterizations for square root or ensemble Kalman filters: application to the control of ocean mesoscale signals"</i>, Month. Weath. Rev..  Vol. 138(3), pp. 932-950.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('brankart2010a','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_brankart2010a" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{brankart2010a,
+  author = {Brankart, J.-M. and Cosme, E. and Testut, C.-E. and Brasseur, P. and Verron, J.},
+  title = {Efficient adaptive error parameterizations for square root or ensemble Kalman filters: application to the control of ocean mesoscale signals},
+  journal = {Month. Weath. Rev.},
+  year = {2010},
+  volume = {138(3)},
+  pages = {932-950}
+}
+</pre></td>
+</tr>
+<tr id="cosme2010" class="entry">
+	<td>Cosme E, Brankart J, Verron J, Brasseur P and Krysta M (2010), <i>"Implementation of a reduced-rank, square-root smoother for ocean data assimilation"</i>, Ocean Modelling.  Vol. 33, pp. 87-100.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('cosme2010','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_cosme2010" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{cosme2010,
+  author = {Cosme, E. and J.M. Brankart and J. Verron and P. Brasseur and M. Krysta},
+  title = {Implementation of a reduced-rank, square-root smoother for ocean data assimilation},
+  journal = {Ocean Modelling},
+  year = {2010},
+  volume = {33},
+  pages = {87--100}
+}
+</pre></td>
+</tr>
+<tr id="brankart2009" class="entry">
+	<td>Brankart J-M, Ubelmann C, Testut C-E, Cosme E, Brasseur P and Verron J (2009), <i>"Efficient parameterization of the observation error covariance matrix for square root or ensemble Kalman filters: application to ocean altimetry"</i>, Month. Weath. Rev..  Vol. 137(6), pp. 1908-1927.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('brankart2009','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_brankart2009" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{brankart2009,
+  author = {Brankart, J.-M. and Ubelmann, C. and Testut, C.-E. and Cosme, E. and Brasseur, P. and Verron, J.},
+  title = {Efficient parameterization of the observation error covariance matrix for square root or ensemble Kalman filters: application to ocean altimetry},
+  journal = {Month. Weath. Rev.},
+  year = {2009},
+  volume = {137(6)},
+  pages = {1908-1927}
+}
+</pre></td>
+</tr>
+<tr id="castebrunet2009" class="entry">
+	<td>Castebrunet H, Martinerie P, Genthon C and Cosme E (2009), <i>"A three-dimensional model study of methanesulphonic acid to non sea salt sulphate ratio at mid and high-southern latitudes"</i>, Atmospheric Chemistry and Physics.  Vol. 9(24), pp. 9449-9469.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('castebrunet2009','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.5194/acp-9-9449-2009" target="_blank">DOI</a>] [<a href="https://www.atmos-chem-phys.net/9/9449/2009/" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_castebrunet2009" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{castebrunet2009,
+  author = {Castebrunet, H. and Martinerie, P. and Genthon, C. and Cosme, E.},
+  title = {A three-dimensional model study of methanesulphonic acid to non sea salt sulphate ratio at mid and high-southern latitudes},
+  journal = {Atmospheric Chemistry and Physics},
+  year = {2009},
+  volume = {9},
+  number = {24},
+  pages = {9449--9469},
+  url = {https://www.atmos-chem-phys.net/9/9449/2009/},
+  doi = {10.5194/acp-9-9449-2009}
+}
+</pre></td>
+</tr>
+<tr id="ubelmann2009" class="entry">
+	<td>Ubelmann C, Verron J, Brankart JM, Cosme E and Brasseur P (2009), <i>"Impact of data from upcoming altimetric missions on the prediction of the three-dimensional circulation in the tropical Atlantic Ocean"</i>, Journal of Operational Oceanography.  Vol. 2(1), pp. 3-14. Taylor &amp; Francis.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('ubelmann2009','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.1080/1755876X.2009.11020104" target="_blank">DOI</a>] [<a href=" 
+        https://doi.org/10.1080/1755876X.2009.11020104
+    
+" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_ubelmann2009" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{ubelmann2009,
+  author = {C Ubelmann and J Verron and J M Brankart and E Cosme and P Brasseur},
+  title = {Impact of data from upcoming altimetric missions on the prediction of the three-dimensional circulation in the tropical Atlantic Ocean},
+  journal = {Journal of Operational Oceanography},
+  publisher = {Taylor &amp; Francis},
+  year = {2009},
+  volume = {2},
+  number = {1},
+  pages = {3-14},
+  url = { <br>        https://doi.org/10.1080/1755876X.2009.11020104<br>    <br>},
+  doi = {10.1080/1755876X.2009.11020104}
+}
+</pre></td>
+</tr>
+<tr id="rozier2007" class="entry">
+	<td>Rozier D, Cosme E, Birol F, Brasseur P, Brankart J-M and Verron J (2007), <i>"A reduced-order Kalman filter for data assimilation in physical oceanography"</i>, SIAM Rev..  Vol. 49(3), pp. 449-465.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('rozier2007','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_rozier2007" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{rozier2007,
+  author = {Rozier, D. and E. Cosme and F. Birol and P. Brasseur and J.-M. Brankart and J. Verron},
+  title = {A reduced-order Kalman filter for data assimilation in physical oceanography},
+  journal = {SIAM Rev.},
+  year = {2007},
+  volume = {49(3)},
+  pages = {449-465}
+}
+</pre></td>
+</tr>
+<tr id="cosme2005" class="entry">
+	<td>Cosme E, Hourdin F, Genthon C and Martinerie P (2005), <i>"Origin of dimethylsulfide, non-sea-salt sulfate, and methanesulfonic acid in Eastern Antarctica"</i>, J. Geophys. Res..  Vol. 110, pp. D03302.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('cosme2005','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_cosme2005" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{cosme2005,
+  author = {Cosme, E. and F. Hourdin and C. Genthon and P. Martinerie},
+  title = {Origin of dimethylsulfide, non-sea-salt sulfate, and methanesulfonic acid in Eastern Antarctica},
+  journal = {J. Geophys. Res.},
+  year = {2005},
+  volume = {110},
+  pages = {D03302},
+  note = {doi:10.1029/2004JD004881}
+}
+</pre></td>
+</tr>
+<tr id="belviso2001" class="entry">
+	<td>Belviso S, Moulin C, Cosme E, Chapman E and Aranami K (2004), <i>"A new, satellite-based method for estimating global oceanic dimethylsulfide concentrations and its application in a three-dimensional atmospheric general circulation model"</i>, In Emissions of atmospheric trace compounds. , pp. 560. Springer.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('belviso2001','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_belviso2001" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@inproceedings{belviso2001,
+  author = {Belviso, S. and C. Moulin and E. Cosme and E. Chapman and K. Aranami},
+  editor = {C. Granier, P. Artaxo and P. Reeves},
+  title = {A new, satellite-based method for estimating global oceanic dimethylsulfide concentrations and its application in a three-dimensional atmospheric general circulation model},
+  booktitle = {Emissions of atmospheric trace compounds},
+  publisher = {Springer},
+  year = {2004},
+  pages = {560}
+}
+</pre></td>
+</tr>
+<tr id="boucher2003" class="entry">
+	<td>Boucher O, Moulin C, Belviso S, Aumont O, Bopp L, Cosme E, von Kuhlmann R, Lawrence MG, Pham M, Reddy MS, Sciare J and Venkataraman C (2003), <i>"DMS atmospheric concentrations and sulphate aerosol indirect radiative forcing: a sensitivity study to the DMS source representation and oxidation"</i>, Atmospheric Chemistry and Physics.  Vol. 3(1), pp. 49-65.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('boucher2003','bibtex')">BibTeX</a>] [<a href="https://doi.org/10.5194/acp-3-49-2003" target="_blank">DOI</a>] [<a href="https://www.atmos-chem-phys.net/3/49/2003/" target="_blank">URL</a>]</p>
+	</td>
+</tr>
+<tr id="bib_boucher2003" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{boucher2003,
+  author = {Boucher, O. and Moulin, C. and Belviso, S. and Aumont, O. and Bopp, L. and Cosme, E. and von Kuhlmann, R. and Lawrence, M. G. and Pham, M. and Reddy, M. S. and Sciare, J. and Venkataraman, C.},
+  title = {DMS atmospheric concentrations and sulphate aerosol indirect radiative forcing: a sensitivity study to the DMS source representation and oxidation},
+  journal = {Atmospheric Chemistry and Physics},
+  year = {2003},
+  volume = {3},
+  number = {1},
+  pages = {49--65},
+  url = {https://www.atmos-chem-phys.net/3/49/2003/},
+  doi = {10.5194/acp-3-49-2003}
+}
+</pre></td>
+</tr>
+<tr id="" class="entry">
+	<td>Genthon C and Cosme E (2003), <i>" Intermittent signature of ENSO in west-Antarctic precipitation"</i>, Geophysical Research Letters.  Vol. 30(21), pp. 2081.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{,
+  author = {Genthon, C. and E. Cosme},
+  title = { Intermittent signature of ENSO in west-Antarctic precipitation},
+  journal = {Geophysical Research Letters},
+  year = {2003},
+  volume = {30},
+  number = {21},
+  pages = {2081},
+  note = {doi:10.1029/2003GL018280}
+}
+</pre></td>
+</tr>
+<tr id="cosme2002" class="entry">
+	<td>Cosme E, Genthon C, Martinerie P, Boucher O and Pham M (2002), <i>"The sulfur cycle at high-southern latitudes in the LMD-ZT General Circulation Model"</i>, J. Geophys. Res..  Vol. 107(D23), pp. 4690.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('cosme2002','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_cosme2002" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{cosme2002,
+  author = {Cosme, E. and C. Genthon and P. Martinerie and O. Boucher and M. Pham},
+  title = {The sulfur cycle at high-southern latitudes in the LMD-ZT General Circulation Model},
+  journal = {J. Geophys. Res.},
+  year = {2002},
+  volume = {107(D23)},
+  pages = {4690},
+  note = {doi:10.1029/2002JD002149}
+}
+</pre></td>
+</tr>
+<tr id="genthon:2002" class="entry">
+	<td>Genthon C, Krinner G and Cosme E (2002), <i>"Free and laterally-nudged Antarctic climate of an Atmospheric General Circulation Model"</i>, Month. Weath. Rev..  Vol. 130, pp. 1601-1616.
+	<p class="infolinks"> [<a href="javascript:toggleInfo('genthon:2002','bibtex')">BibTeX</a>]</p>
+	</td>
+</tr>
+<tr id="bib_genthon:2002" class="bibtex noshow">
+<td><b>BibTeX</b>:
+<pre>
+@article{genthon:2002,
+  author = {Genthon, C. and G. Krinner and E. Cosme},
+  title = {Free and laterally-nudged Antarctic climate of an Atmospheric General Circulation Model},
+  journal = {Month. Weath. Rev.},
+  year = {2002},
+  volume = {130},
+  pages = {1601-1616}
+}
+</pre></td>
+</tr>
+</tbody>
+</table>
+<footer>
+ <small>Created by <a href="http://jabref.sourceforge.net">JabRef</a> on 16/03/2020.</small>
+</footer>
+<!-- file generated by JabRef -->
+</body>
+</html>

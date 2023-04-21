@@ -29,3 +29,10 @@ const navList = document.querySelector('.nav-list');
 menu.addEventListener('click', () => {
     navList.classList.toggle('mobile-menu')
 })
+
+
+// Hover effects
+VanillaTilt.init(document.querySelectorAll(".content"), {
+    max: 5,
+    speed: 400
+});

@@ -7,7 +7,9 @@
 		<link rel="icon" href="img/logos/IGE.png">
 		<link rel="stylesheet" href="src/style_2.css">
 		<link rel="stylesheet" href="src/loader.css">
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" integrity="sha512-KfkfwYDsLkIlwQp6LFnl8zNdLGxu9YAA1QvwINks4PhcElQSvqcyVLLD9aMhXd13uQjoXtEKNosOWaZqXgel0g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+			integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw=="
+			crossorigin="anonymous" referrerpolicy="no-referrer" />
 	</head>
 	<body background="img/autres/sea.jpg">
 		<div class="loader">
@@ -18,14 +20,17 @@
 			<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
 			<img class="photo" src="img/autres/PhotoEmmanuelCosme.jpg" width="200" align="right">
 			<p align="center" class="title">Emmanuel COSME</p>
-			<p class="name">Accueil</p>
-			<div class="wrapper">
-				<a onclick="window.location.href='index.html';" class="btn">Accueil</a>
-				<a onclick="window.location.href='enseignement.html';" class="btn">Enseignement</a>
-				<a onclick="window.location.href='collabo.html';" class="btn">Collaborateurs</a>
-				<a onclick="window.location.href='projets.html';" class="btn">Projets</a>
-				<a onclick="window.location.href='public.html';" class="btn">Publications</a>
-			</div>
+			<nav>
+				<ul class="nav-list">
+					<a onclick="window.location.href='index.html';" class="active">Accueil</a>
+					<a onclick="window.location.href='enseignement.html';">Enseignement</a>
+					<a onclick="window.location.href='collabo.html';">Collaborateurs</a>
+					<a onclick="window.location.href='projets.html';">Projets</a>
+					<a onclick="window.location.href='public.html';">Publications</a>
+					<div class="hover"></div>
+				</ul>
+				<i class="fa-solid fa-bars display"></i>
+			</nav>
 		</header>
 		<div class="explore">
 			<a class="discover" href="#discover">Découvrir</a>

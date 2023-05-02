@@ -33,6 +33,8 @@ menu.addEventListener('click', () => {
 
 // Hover effects
 VanillaTilt.init(document.querySelectorAll(".content"), {
-    max: 5,
-    speed: 400
+    max: 3,
+    speed: 400,
+    glare: true,
+    "max-glare": .2
 });

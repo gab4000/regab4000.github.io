@@ -26,7 +26,6 @@ p {
 .title {
     position: relative;
     font-size: xx-large;
-    width: 60%;
 }
 
 body {
@@ -109,7 +108,7 @@ header {
     padding: 5px;
     padding-left: 15px;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     flex-direction: row;
     background: rgba(255, 255, 255, 0.1);
@@ -227,9 +226,10 @@ nav .fa-bars {
 
 
 /* Responsive */
-@media screen and (max-width: 1990px) {
+@media screen and (max-width: 1170px) {
     nav {
         padding: 0;
+        width: 0;
     }
 
     .nav-list {

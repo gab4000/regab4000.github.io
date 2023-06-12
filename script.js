@@ -1,11 +1,5 @@
 // Chargement
 
-const nav = document.querySelector('.wrapper');
-const title = document.querySelector('.title');
-const footer = document.querySelectorAll('.f-item');
-const photo = document.querySelector('.photo');
-const para1 = document.querySelectorAll('.para1');
-
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
